@@ -1,0 +1,10 @@
+type: provisioning
+executor: docker
+product:
+  image: "alpine"
+  commands: |
+    echo Hello
+    echo World
+callback:
+  url: ""
+  secret: ""
