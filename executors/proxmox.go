@@ -11,11 +11,11 @@ import (
 
 // RunProxmox führt einen API-Call gegen einen Proxmox-Server aus
 func RunProxmox(jobID string, product map[string]interface{}, variables map[string]string, logWriter io.Writer) int {
-	host, _ := product["host"].(string)         // z.B. https://proxmox.example.com:8006
-	node, _ := product["node"].(string)         // z.B. pve
-	typeStr, _ := product["type"].(string)      // "qemu" oder "lxc"
-	vmid, _ := product["vmid"].(string)         // z.B. 101 (optional für create)
-	tokenID, _ := product["token_id"].(string)  // z.B. root@pam!apitoken
+	host, _ := product["host"].(string)        // z.B. https://proxmox.example.com:8006
+	node, _ := product["node"].(string)        // z.B. pve
+	typeStr, _ := product["type"].(string)     // "qemu" oder "lxc"
+	vmid, _ := product["vmid"].(string)        // z.B. 101 (optional für create)
+	tokenID, _ := product["token_id"].(string) // z.B. root@pam!apitoken
 	tokenSecret, _ := product["token_secret"].(string)
 	apiCommand, _ := product["api_command"].(string) // z.B. "status/start", "create", "config", "agent/exec"
 	apiParams, _ := product["api_params"].(map[string]interface{})
