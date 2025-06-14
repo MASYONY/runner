@@ -2,12 +2,13 @@ type: provisioning
 executor: docker
 product:
   image: "alpine"
-  commands: |
-    echo Hello
-    echo World
-    echo $MY_VAR
-variables: 
-  MY_VAR: "Hello World"
+  before_script:
+    - echo "[BEFORE] Vorbereitung..."
+  script:
+    - echo "[SCRIPT] Hello"
+    - echo "[SCRIPT] World"
+variables:
+  TTY: "true"
 callback:
   url: "https://webhook.site/2f68f5a6-ba62-4a29-8c8a-beef61032686"
   secret: ""

@@ -2,12 +2,15 @@ type: test
 executor: docker
 product:
   image: "alpine"
-  commands: |
-    echo "Starte Sleep-Test..."
-    sleep $TESTVAR
-    echo "Fertig!"
+  before_script:
+    - echo "[BEFORE] Starte Sleep-Test..."
+  script:
+    - echo "[SCRIPT] Schlafe jetzt 30 Sekunden..."
+    - sleep 30
+    - echo "[SCRIPT] Fertig!"
 variables:
-  TESTVAR: "30"
+  TESTVAR: "sleep30"
+  TTY: "true"
 callback:
   url: ""
   secret: ""

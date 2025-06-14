@@ -19,9 +19,10 @@ var (
 )
 
 type RunnerConfig struct {
-	DefaultLogDir  string `yaml:"default_log_dir"`
-	DefaultWorkDir string `yaml:"default_work_dir"`
-	Callback       struct {
+	DefaultLogDir      string   `yaml:"default_log_dir"`
+	DefaultWorkDir     string   `yaml:"default_work_dir"`
+	GlobalBeforeScript []string `yaml:"before_script"`
+	Callback           struct {
 		URL    string `yaml:"url"`
 		Secret string `yaml:"secret"`
 	} `yaml:"callback"`
@@ -66,7 +67,7 @@ var runCmd = &cobra.Command{
 		}
 
 		// Job ausführen mit erweiterten Optionen
-		jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret)
+		jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript)
 	},
 }
 
@@ -103,7 +104,7 @@ var runMultiCmd = &cobra.Command{
 
 		for i, jobDef := range jobsList {
 			fmt.Printf("\n--- Starte Job %d: %s ---\n", i+1, jobDef.Type)
-			jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret)
+			jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript)
 		}
 	},
 }

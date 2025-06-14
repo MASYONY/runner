@@ -2,9 +2,13 @@
   executor: docker
   product:
     image: "alpine"
-    commands: |
-      echo Hello
-      echo World
+    before_script:
+      - echo "[BEFORE] Vorbereitung..."
+    script:
+      - echo "[SCRIPT] Hello"
+      - echo "[SCRIPT] World"
+  variables:
+    TTY: "true"
   callback:
     url: ""
     secret: ""
@@ -12,9 +16,13 @@
   executor: docker
   product:
     image: "alpine"
-    commands: |
-      echo Hello
-      echo World
+    before_script:
+      - echo "[BEFORE] Vorbereitung..."
+    script:
+      - echo "[SCRIPT] Hello"
+      - echo "[SCRIPT] World"
+  variables:
+    TTY: "true"
   callback:
     url: ""
     secret: ""

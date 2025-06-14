@@ -1,8 +1,10 @@
 package executors
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,32 +20,58 @@ var DefaultJobEnv = map[string]string{
 	"RUNNER_LOG_DIR":  getEnv("RUNNER_LOG_DIR", "/runner/logs"),
 }
 
-func RunDocker(jobID string, product map[string]string, variables map[string]string, logWriter io.Writer) int {
-	fmt.Fprintf(logWriter, "[Docker Executor] Starte Job %s\n", jobID)
+type DockerProduct struct {
+	Image        string
+	BeforeScript []string
+	Script       []string
+	Commands     string
+	Namespace    string
+}
 
-	image := strings.TrimSpace(product["image"])
+func RunDocker(jobID string, product DockerProduct, variables map[string]string, logWriter io.Writer, useTTY bool) int {
+	DefaultInfoLogger := log.New(logWriter, "INFO: ", log.LstdFlags)
+	DefaultErrorLogger := log.New(logWriter, "ERROR: ", log.LstdFlags)
+
+	DefaultInfoLogger.Printf("[Docker Executor] Starte Job %s", jobID)
+
+	image := strings.TrimSpace(product.Image)
 	if image == "" {
-		fmt.Fprintf(logWriter, "Docker Executor: Error: No image defined\n")
+		DefaultErrorLogger.Printf("Docker Executor: Error: No image defined")
 		return 1
 	}
 
-	commandsRaw := strings.TrimSpace(product["commands"])
-	if commandsRaw == "" {
-		fmt.Fprintf(logWriter, "Docker Executor: Error: No commands defined\n")
+	// Sammle alle Befehle: before_script, commands, script
+	var commands []string
+	if len(product.BeforeScript) > 0 {
+		commands = append(commands, product.BeforeScript...)
+	}
+	commandsRaw := strings.TrimSpace(product.Commands)
+	if commandsRaw != "" {
+		for _, line := range strings.Split(commandsRaw, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				commands = append(commands, line)
+			}
+		}
+	}
+	if len(product.Script) > 0 {
+		commands = append(commands, product.Script...)
+	}
+	if len(commands) == 0 {
+		DefaultErrorLogger.Printf("Docker Executor: Error: No commands to execute")
 		return 1
 	}
 
 	// Namespace aus product oder variables lesen (optional)
-	namespace := "runner" // Default Namespace ist jetzt 'runner'
-	if ns, ok := product["namespace"]; ok && ns != "" {
-		namespace = ns
+	namespace := "runner"
+	if product.Namespace != "" {
+		namespace = product.Namespace
 	} else if ns, ok := variables["NAMESPACE"]; ok && ns != "" {
 		namespace = ns
 	}
 
 	containerName := "runner_" + jobID
 
-	// Arbeitsverzeichnis für den Job (Host und Container)
 	hostWorkdir := os.Getenv("RUNNER_WORKDIR")
 	if hostWorkdir == "" {
 		hostWorkdir = "./workdir"
@@ -58,19 +86,6 @@ func RunDocker(jobID string, product map[string]string, variables map[string]str
 	containerWorkdir := "/runner/jobworkdir"
 	_ = os.MkdirAll(mntHostDirAbs, 0755)
 
-	// Commands in Zeilen aufteilen
-	lines := strings.Split(commandsRaw, "\n")
-	var commands []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			commands = append(commands, line)
-		}
-	}
-
-	// Alle commands als eine Shell-Zeile mit &&
-	fullCmd := strings.Join(commands, " && ")
-
 	// Umgebungsvariablen vorbereiten
 	env := []string{}
 	for key, val := range DefaultJobEnv {
@@ -79,17 +94,15 @@ func RunDocker(jobID string, product map[string]string, variables map[string]str
 		}
 		env = append(env, fmt.Sprintf("%s=%s", key, val))
 	}
-	// Zusätzliche Variablen aus YAML hinzufügen
 	for key, val := range variables {
 		env = append(env, fmt.Sprintf("%s=%s", key, val))
 	}
-	// Arbeitsverzeichnis im Container als Umgebungsvariable
 	env = append(env, fmt.Sprintf("JOB_WORKDIR=%s", containerWorkdir))
 
-	fmt.Fprintf(logWriter, "[Docker Executor] Verwende Image: %s\n", image)
-	fmt.Fprintf(logWriter, "[Docker Executor] Führe aus: %s\n", fullCmd)
-	fmt.Fprintf(logWriter, "[Docker Executor] Namespace: %s, Containername: %s\n", namespace, containerName)
-	fmt.Fprintf(logWriter, "[Docker Executor] Mount: %s -> %s\n", mntHostDirAbs, containerWorkdir)
+	DefaultInfoLogger.Printf("[Docker Executor] Verwende Image: %s", image)
+	DefaultInfoLogger.Printf("[Docker Executor] Führe aus: %s", strings.Join(commands, " && "))
+	DefaultInfoLogger.Printf("[Docker Executor] Namespace: %s, Containername: %s", namespace, containerName)
+	DefaultInfoLogger.Printf("[Docker Executor] Mount: %s -> %s", mntHostDirAbs, containerWorkdir)
 
 	// Docker Socket für Docker-in-Docker ermöglichen
 	dockerSock := "/var/run/docker.sock"
@@ -101,22 +114,42 @@ func RunDocker(jobID string, product map[string]string, variables map[string]str
 		"--label", fmt.Sprintf("namespace=%s", namespace),
 		"--env", fmt.Sprintf("JOB_ID=%s", jobID),
 	}
+	if useTTY {
+		dockerArgs = append(dockerArgs, "-t")
+	}
 	for _, e := range env {
 		dockerArgs = append(dockerArgs, "--env", e)
 	}
-	dockerArgs = append(dockerArgs, image, "sh", "-c", fullCmd)
+	dockerArgs = append(dockerArgs, image, "sh", "-c", strings.Join(commands, " && "))
 
 	cmd := exec.Command("docker", dockerArgs...)
-	cmd.Stdout = logWriter
-	cmd.Stderr = logWriter
+	// Statt direktes logWriter: Output abfangen und mit Logger loggen
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	// Logger-Forwarder
+	done := make(chan struct{})
+	go func() {
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			DefaultInfoLogger := log.New(logWriter, "INFO: ", log.LstdFlags)
+			DefaultInfoLogger.Println(line)
+		}
+		close(done)
+	}()
 
 	err = cmd.Run()
+	pw.Close()
+	<-done
+
 	if err != nil {
-		fmt.Fprintf(logWriter, "[Docker Executor] Fehler: %v\n", err)
+		DefaultErrorLogger.Printf("[Docker Executor] Fehler: %v", err)
 		return 1
 	}
 
-	fmt.Fprintf(logWriter, "[Docker Executor] Job %s erfolgreich beendet\n", jobID)
+	DefaultInfoLogger.Printf("[Docker Executor] Job %s erfolgreich beendet", jobID)
 	return 0
 }
 

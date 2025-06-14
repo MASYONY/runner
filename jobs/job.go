@@ -27,12 +27,12 @@ type CallbackConfig struct {
 }
 
 type Job struct {
-	JobID     string            `yaml:"job_id"`
-	Type      string            `yaml:"type"`
-	Executor  string            `yaml:"executor"`
-	Product   map[string]string `yaml:"product"`
-	Artifacts []Artifact        `yaml:"artifacts"`
-	Variables map[string]string `yaml:"variables"`
+	JobID     string                 `yaml:"job_id"`
+	Type      string                 `yaml:"type"`
+	Executor  string                 `yaml:"executor"`
+	Product   map[string]interface{} `yaml:"product"`
+	Artifacts []Artifact             `yaml:"artifacts"`
+	Variables map[string]string      `yaml:"variables"`
 	Callback  struct {
 		URL    string `yaml:"url"`
 		Secret string `yaml:"secret"`
@@ -102,7 +102,7 @@ func writeStatusFile(job *Job, jobDir string) {
 	}
 }
 
-func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string) {
+func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string, globalBeforeScript []string) {
 	job.Status = "pending"
 	job.ExitCode = -1
 	jobDir := filepath.Join(workDir, job.JobID)
@@ -132,7 +132,60 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 	var exitCode int
 	switch job.Executor {
 	case "docker":
-		exitCode = executors.RunDocker(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+		// TTY-Option aus Job lesen (Standard: false)
+		useTTY := false
+		if v, ok := job.Variables["TTY"]; ok && (v == "true" || v == "1") {
+			useTTY = true
+		}
+		// before_script: global + job-spezifisch
+		allBefore := append([]string{}, globalBeforeScript...)
+		if before, ok := job.Product["before_script"]; ok {
+			if beforeArr, ok := before.([]interface{}); ok {
+				for _, b := range beforeArr {
+					if s, ok := b.(string); ok {
+						allBefore = append(allBefore, s)
+					}
+				}
+			}
+		}
+		var script []string
+		if scr, ok := job.Product["script"]; ok {
+			if scrArr, ok := scr.([]interface{}); ok {
+				for _, s := range scrArr {
+					if str, ok := s.(string); ok {
+						script = append(script, str)
+					}
+				}
+			}
+		}
+		image := ""
+		if img, ok := job.Product["image"]; ok {
+			image, _ = img.(string)
+		}
+		commands := ""
+		if cmd, ok := job.Product["commands"]; ok {
+			commands, _ = cmd.(string)
+		}
+		namespace := "runner"
+		if ns, ok := job.Product["namespace"]; ok {
+			namespace, _ = ns.(string)
+		}
+		// Baue ein struct für den Executor
+		type DockerProduct struct {
+			Image        string
+			BeforeScript []string
+			Script       []string
+			Commands     string
+			Namespace    string
+		}
+		product := executors.DockerProduct{
+			Image:        image,
+			BeforeScript: allBefore,
+			Script:       script,
+			Commands:     commands,
+			Namespace:    namespace,
+		}
+		exitCode = executors.RunDocker(job.JobID, product, job.Variables, io.MultiWriter(os.Stderr, logFile), useTTY)
 	default:
 		utils.ErrorLogger.Printf("Unknown executor %q. Aborted.", job.Executor)
 		exitCode = 1
