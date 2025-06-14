@@ -1,0 +1,14 @@
+# sevDesk: Rechnung erstellen
+job_id: sevdesk-create-invoice
+executor: sevdesk
+type: create_invoice
+product:
+  api_token: "<DEIN_API_TOKEN>"
+  contact_id: "54321"
+  invoice_data:
+    date: "2025-06-14"
+    items:
+      - description: "Entwicklung"
+        quantity: 3
+        price: 150.0
+    total: 450.0

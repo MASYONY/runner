@@ -1,0 +1,10 @@
+# LXC-Konfiguration abfragen
+job_id: test-lxc-config
+executor: proxmox
+type: lxc_config
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 201

@@ -1,0 +1,8 @@
+type: local-test
+executor: local
+product:
+  commands: |
+    echo "Local Executor: Hello from local!"
+    echo "Local Env: $MYVAR"
+variables:
+  MYVAR: "localbar"

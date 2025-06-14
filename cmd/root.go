@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/MASYONY/runner/jobs"
+	"github.com/MASYONY/runner/utils"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -111,6 +112,12 @@ var runMultiCmd = &cobra.Command{
 
 func loadConfig(path string) error {
 	if path == "" {
+		// Fallback: config.yaml im aktuellen Verzeichnis
+		if _, err := os.Stat("config.yaml"); err == nil {
+			path = "config.yaml"
+		}
+	}
+	if path == "" {
 		return nil
 	}
 	data, err := os.ReadFile(path)
@@ -134,6 +141,7 @@ func init() {
 }
 
 func Execute() {
+	utils.InitSocketLogging()
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

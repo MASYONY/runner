@@ -1,0 +1,7 @@
+default_log_dir: ./logs
+default_work_dir: ./workdir
+before_script:
+  - echo "[GLOBAL BEFORE] Starte globalen Vorbereitungsschritt..."
+callback:
+  url: "https://webhook.site/2f68f5a6-ba62-4a29-8c8a-beef61032686"
+  secret: ""

@@ -1,0 +1,10 @@
+# KVM-VM Metriken abfragen
+job_id: test-kvm-metrics
+executor: proxmox
+type: kvm_metrics
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301

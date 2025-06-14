@@ -1,0 +1,13 @@
+# KVM-VM Festplatte vergrößern
+job_id: test-kvm-resize
+executor: proxmox
+type: kvm_resize
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+  params:
+    disk: "sata0"
+    size: "+10G"

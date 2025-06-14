@@ -1,0 +1,13 @@
+# KVM-VM Snapshot erstellen
+job_id: test-kvm-snapshot
+executor: proxmox
+type: kvm_snapshot
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+  params:
+    snapname: "snap1"
+    description: "Snapshot via Runner"

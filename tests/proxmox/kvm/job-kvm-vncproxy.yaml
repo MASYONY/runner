@@ -1,0 +1,12 @@
+# VNC-Proxy für KVM-VM starten
+job_id: test-kvm-vncproxy
+executor: proxmox
+type: kvm_vncproxy
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+# Die API-Antwort enthält Ticket und Port für die VNC-Verbindung.
+# Beispiel-Weiterverarbeitung: https://pve.proxmox.com/pve-docs/api-viewer/index.html#/nodes/{node}/qemu/{vmid}/vncproxy

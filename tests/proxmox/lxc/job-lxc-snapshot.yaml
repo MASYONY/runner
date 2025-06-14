@@ -1,0 +1,13 @@
+# LXC-Container Snapshot erstellen
+job_id: test-lxc-snapshot
+executor: proxmox
+type: lxc_snapshot
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 201
+  params:
+    snapname: "snap1"
+    description: "Snapshot via Runner"

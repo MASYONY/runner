@@ -1,0 +1,13 @@
+# LXC klonen
+job_id: test-lxc-clone
+executor: proxmox
+type: lxc_clone
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 201
+  params:
+    newid: 202
+    name: "clone-lxc-202"

@@ -1,0 +1,10 @@
+# KVM-Status abfragen
+job_id: test-kvm-status
+executor: proxmox
+type: kvm_status
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301

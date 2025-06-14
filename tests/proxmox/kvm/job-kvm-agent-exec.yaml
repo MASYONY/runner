@@ -1,0 +1,12 @@
+# Befehl im KVM-Gast ausführen (QEMU Guest Agent muss laufen)
+job_id: test-kvm-agent-exec
+executor: proxmox
+type: kvm_agent_exec
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+  params:
+    command: ["whoami"]

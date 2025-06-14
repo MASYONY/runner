@@ -1,0 +1,10 @@
+type: ssh-test
+executor: ssh
+product:
+  host: "remote.example.com"
+  user: "ubuntu"
+  commands: |
+    echo "SSH Executor: Hello from remote!"
+    echo "Remote Env: $MYVAR"
+variables:
+  MYVAR: "sshbar"

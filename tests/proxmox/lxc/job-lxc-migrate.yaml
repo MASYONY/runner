@@ -1,0 +1,12 @@
+# LXC migrieren
+job_id: test-lxc-migrate
+executor: proxmox
+type: lxc_migrate
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 201
+  params:
+    target: "pve2"

@@ -1,0 +1,11 @@
+# VNC-Proxy für LXC starten
+job_id: test-lxc-vncproxy
+executor: proxmox
+type: lxc_vncproxy
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 201
+# Die API-Antwort enthält Ticket und Port für die VNC-Verbindung.

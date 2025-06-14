@@ -1,0 +1,12 @@
+# KVM-VM migrieren
+job_id: test-kvm-migrate
+executor: proxmox
+type: kvm_migrate
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+  params:
+    target: "pve2"

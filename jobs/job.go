@@ -103,6 +103,249 @@ func writeStatusFile(job *Job, jobDir string) {
 }
 
 func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string, globalBeforeScript []string) {
+	// Vereinfachte Proxmox-Job-Syntax (Shortcuts für typische Aktionen)
+	if job.Executor == "proxmox" {
+		switch job.Type {
+		case "lxc_create":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "create"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_create":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "create"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "lxc_start":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "status/start"
+		case "lxc_stop":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "status/stop"
+		case "lxc_delete":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "delete"
+		case "kvm_start":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "status/start"
+		case "kvm_stop":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "status/stop"
+		case "kvm_delete":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "delete"
+		case "lxc_snapshot":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "snapshot"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_snapshot":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "snapshot"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		}
+	}
+
+	// Weitere Proxmox-Shortcuts (Status, Config, Agent, VNC, Migrate, Clone, Resize, Firewall, Metrics, List)
+	if job.Executor == "proxmox" {
+		switch job.Type {
+		case "kvm_status":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "status/current"
+		case "lxc_status":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "status/current"
+		case "kvm_config":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "config"
+		case "lxc_config":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "config"
+		case "kvm_agent_exec":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "agent/exec"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "lxc_agent_exec":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "agent/exec"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_vncproxy":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "vncproxy"
+		case "lxc_vncproxy":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "vncproxy"
+		case "kvm_migrate":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "migrate"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "lxc_migrate":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "migrate"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_clone":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "clone"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "lxc_clone":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "clone"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_resize":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "resize"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "lxc_resize":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "resize"
+			if params, ok := job.Product["params"]; ok {
+				job.Product["api_params"] = params
+				delete(job.Product, "params")
+			}
+		case "kvm_firewall":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "firewall"
+		case "lxc_firewall":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "firewall"
+		case "kvm_metrics":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = "rrddata"
+		case "lxc_metrics":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = "rrddata"
+		case "kvm_list":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "qemu"
+			job.Product["api_command"] = ""
+			// List: GET /nodes/{node}/qemu
+			job.Product["list_mode"] = true
+		case "lxc_list":
+			if job.Product == nil {
+				job.Product = make(map[string]interface{})
+			}
+			job.Product["type"] = "lxc"
+			job.Product["api_command"] = ""
+			job.Product["list_mode"] = true
+		}
+	}
+
 	job.Status = "pending"
 	job.ExitCode = -1
 	jobDir := filepath.Join(workDir, job.JobID)
@@ -128,6 +371,16 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 	utils.InfoLogger.Println("Starting job:", job.JobID)
 	job.Status = "running"
 	writeStatusFile(job, jobDir)
+	// Callback beim Start (Status running)
+	callbackURL := job.Callback.URL
+	callbackSecret := job.Callback.Secret
+	if callbackURL == "" {
+		callbackURL = defaultCallbackURL
+		callbackSecret = defaultCallbackSecret
+	}
+	if callbackURL != "" {
+		sendCallback(callbackURL, callbackSecret, job)
+	}
 
 	var exitCode int
 	switch job.Executor {
@@ -140,33 +393,61 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 		// before_script: global + job-spezifisch
 		allBefore := append([]string{}, globalBeforeScript...)
 		if before, ok := job.Product["before_script"]; ok {
-			if beforeArr, ok := before.([]interface{}); ok {
-				for _, b := range beforeArr {
+			switch v := before.(type) {
+			case []interface{}:
+				for _, b := range v {
 					if s, ok := b.(string); ok {
 						allBefore = append(allBefore, s)
+					}
+				}
+			case string:
+				for _, line := range strings.Split(v, "\n") {
+					line = strings.TrimSpace(line)
+					if line != "" {
+						allBefore = append(allBefore, line)
 					}
 				}
 			}
 		}
 		var script []string
 		if scr, ok := job.Product["script"]; ok {
-			if scrArr, ok := scr.([]interface{}); ok {
-				for _, s := range scrArr {
+			switch v := scr.(type) {
+			case []interface{}:
+				for _, s := range v {
 					if str, ok := s.(string); ok {
 						script = append(script, str)
 					}
 				}
+			case string:
+				for _, line := range strings.Split(v, "\n") {
+					line = strings.TrimSpace(line)
+					if line != "" {
+						script = append(script, line)
+					}
+				}
 			}
-		}
-		image := ""
-		if img, ok := job.Product["image"]; ok {
-			image, _ = img.(string)
 		}
 		commands := ""
 		if cmd, ok := job.Product["commands"]; ok {
-			commands, _ = cmd.(string)
+			switch v := cmd.(type) {
+			case []interface{}:
+				var lines []string
+				for _, s := range v {
+					if str, ok := s.(string); ok {
+						lines = append(lines, str)
+					}
+				}
+				commands = strings.Join(lines, "\n")
+			case string:
+				commands = v
+			}
 		}
-		namespace := "runner"
+		// Felder für DockerProduct korrekt initialisieren
+		var image, namespace string
+		if img, ok := job.Product["image"]; ok {
+			image, _ = img.(string)
+		}
+		namespace = "runner"
 		if ns, ok := job.Product["namespace"]; ok {
 			namespace, _ = ns.(string)
 		}
@@ -186,6 +467,14 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 			Namespace:    namespace,
 		}
 		exitCode = executors.RunDocker(job.JobID, product, job.Variables, io.MultiWriter(os.Stderr, logFile), useTTY)
+	case "custom":
+		exitCode = executors.RunCustom(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+	case "local":
+		exitCode = executors.RunLocal(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+	case "ssh":
+		exitCode = executors.RunSSH(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+	case "proxmox":
+		exitCode = executors.RunProxmox(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
 	default:
 		utils.ErrorLogger.Printf("Unknown executor %q. Aborted.", job.Executor)
 		exitCode = 1
@@ -241,8 +530,8 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 	}
 
 	// Callback-URL aus Job oder global
-	callbackURL := job.Callback.URL
-	callbackSecret := job.Callback.Secret
+	callbackURL = job.Callback.URL
+	callbackSecret = job.Callback.Secret
 	if callbackURL == "" {
 		callbackURL = defaultCallbackURL
 		callbackSecret = defaultCallbackSecret

@@ -1,0 +1,7 @@
+# Lexware: Rechnung stornieren
+job_id: lexware-cancel-invoice
+executor: lexware
+type: cancel_invoice
+product:
+  api_key: "<DEIN_API_KEY>"
+  invoice_id: "98765"

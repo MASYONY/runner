@@ -1,0 +1,13 @@
+# KVM-VM klonen
+job_id: test-kvm-clone
+executor: proxmox
+type: kvm_clone
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  vmid: 301
+  params:
+    newid: 302
+    name: "clone-kvm-302"

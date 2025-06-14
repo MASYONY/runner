@@ -1,0 +1,20 @@
+# Beispiel: LXC-Container auf Proxmox erstellen
+job_id: test-lxc-create
+executor: proxmox
+type: lxc_create
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  params:
+    vmid: 201
+    ostemplate: "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
+    password: "testpass"
+    storage: "local-lvm"
+    cores: 2
+    memory: 1024
+    net0: "name=eth0,bridge=vmbr0,ip=dhcp,tag=10"
+    hostname: "test-lxc-201"
+    start: 1
+    description: "Test-LXC via Runner"

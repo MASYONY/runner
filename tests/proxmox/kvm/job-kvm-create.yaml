@@ -1,0 +1,22 @@
+# Beispiel: KVM-VM auf Proxmox erstellen
+job_id: test-kvm-create
+executor: proxmox
+type: kvm_create
+product:
+  host: "https://proxmox.example.com:8006"
+  node: "pve"
+  token_id: "root@pam!apitoken"
+  token_secret: "<DEIN_TOKEN_SECRET>"
+  params:
+    vmid: 301
+    name: "test-kvm-301"
+    cores: 2
+    memory: 2048
+    scsihw: "virtio-scsi-pci"
+    ide2: "local:iso/debian-12.2.0-amd64-netinst.iso,media=cdrom"
+    sata0: "local-lvm:32"
+    net0: "virtio,bridge=vmbr0,tag=10"
+    ostype: "l26"
+    boot: "order=ide2;net0;sata0"
+    start: 1
+    description: "Test-KVM via Runner"

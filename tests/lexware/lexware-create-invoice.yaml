@@ -1,0 +1,14 @@
+# Lexware: Rechnung erstellen
+job_id: lexware-create-invoice
+executor: lexware
+type: create_invoice
+product:
+  api_key: "<DEIN_API_KEY>"
+  customer_id: "12345"
+  invoice_data:
+    date: "2025-06-14"
+    items:
+      - description: "Beratung"
+        quantity: 2
+        price: 100.0
+    total: 200.0

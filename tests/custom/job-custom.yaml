@@ -1,0 +1,8 @@
+type: custom-test
+executor: custom
+product:
+  script:
+    - 'echo "Custom Executor: Hello from custom script!"'
+    - 'echo "Custom Env: $MYVAR"'
+variables:
+  MYVAR: "foobar"
