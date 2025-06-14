@@ -73,3 +73,11 @@ MIT License
 ---
 
 
+
+
+```bash
+  docker run --rm \
+    -v $(pwd)/tests:/app/tests \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    MASYONY/runner:latest run /app/tests/job-custom.yaml
+```
