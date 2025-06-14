@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN go build -o runner ./cmd/runner
+RUN go build -o runner
 
 FROM alpine:latest
 
