@@ -1,0 +1,13 @@
+type: test
+executor: docker
+product:
+  image: "alpine"
+  commands: |
+    echo "Starte Sleep-Test..."
+    sleep $TESTVAR
+    echo "Fertig!"
+variables:
+  TESTVAR: "30"
+callback:
+  url: ""
+  secret: ""

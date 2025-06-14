@@ -35,9 +35,11 @@ var rootCmd = &cobra.Command{
 }
 
 var runCmd = &cobra.Command{
-	Use:   "run --file job.yaml",
+	Use:   "run <job.yaml>",
 	Short: "Führe einen Job aus",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		file = args[0]
 		err := loadConfig(config)
 		if err != nil {
 			fmt.Println("Fehler beim Laden der Config:", err)
@@ -68,6 +70,44 @@ var runCmd = &cobra.Command{
 	},
 }
 
+var runMultiCmd = &cobra.Command{
+	Use:   "run-multi <multi-jobs.yaml>",
+	Short: "Führe mehrere Jobs aus einer YAML-Liste aus",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		file = args[0]
+		err := loadConfig(config)
+		if err != nil {
+			fmt.Println("Fehler beim Laden der Config:", err)
+			os.Exit(1)
+		}
+
+		if logDir == "" {
+			logDir = runnerConfig.DefaultLogDir
+			if logDir == "" {
+				logDir = "./logs"
+			}
+		}
+		if workDir == "" {
+			workDir = runnerConfig.DefaultWorkDir
+			if workDir == "" {
+				workDir = "./workdir"
+			}
+		}
+
+		jobsList, err := jobs.LoadJobsFile(file)
+		if err != nil {
+			fmt.Println("Failed to load jobs:", err)
+			os.Exit(1)
+		}
+
+		for i, jobDef := range jobsList {
+			fmt.Printf("\n--- Starte Job %d: %s ---\n", i+1, jobDef.Type)
+			jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret)
+		}
+	},
+}
+
 func loadConfig(path string) error {
 	if path == "" {
 		return nil
@@ -81,12 +121,15 @@ func loadConfig(path string) error {
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().StringVarP(&file, "file", "f", "", "Pfad zur Job-YAML")
-	runCmd.MarkFlagRequired("file")
-
 	runCmd.Flags().StringVarP(&config, "config", "c", "", "Pfad zur Runner-Konfigurationsdatei (YAML)")
 	runCmd.Flags().StringVar(&logDir, "log-dir", "", "Verzeichnis für Job-Logs (überschreibt config)")
 	runCmd.Flags().StringVar(&workDir, "workdir", "", "Arbeitsverzeichnis für Job-Artifacts (überschreibt config)")
+
+	// Neuen Multi-Job-Command registrieren
+	rootCmd.AddCommand(runMultiCmd)
+	runMultiCmd.Flags().StringVarP(&config, "config", "c", "", "Pfad zur Runner-Konfigurationsdatei (YAML)")
+	runMultiCmd.Flags().StringVar(&logDir, "log-dir", "", "Verzeichnis für Job-Logs (überschreibt config)")
+	runMultiCmd.Flags().StringVar(&workDir, "workdir", "", "Arbeitsverzeichnis für Job-Artifacts (überschreibt config)")
 }
 
 func Execute() {

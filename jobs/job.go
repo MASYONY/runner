@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/MASYONY/runner/executors"
@@ -16,8 +17,8 @@ import (
 )
 
 type Artifact struct {
-	Path string `yaml:"path`
-	Type string `yaml:"type`
+	Path string `yaml:"path"`
+	Type string `yaml:"type"`
 }
 
 type CallbackConfig struct {
@@ -26,18 +27,19 @@ type CallbackConfig struct {
 }
 
 type Job struct {
-	JobID     string            `yaml:"job_id`
-	Type      string            `yaml:"type`
-	Executor  string            `yaml:"executor`
-	Product   map[string]string `yaml:"product`
-	Artifacts []Artifact        `yaml:"artifacts`
+	JobID     string            `yaml:"job_id"`
+	Type      string            `yaml:"type"`
+	Executor  string            `yaml:"executor"`
+	Product   map[string]string `yaml:"product"`
+	Artifacts []Artifact        `yaml:"artifacts"`
+	Variables map[string]string `yaml:"variables"`
 	Callback  struct {
-		URL    string `yaml:"url`
-		Secret string `yaml:"secret`
-	} `yaml:"callback`
-	Status   string `yaml:"-`
-	ExitCode int    `yaml:"-`
-	LogFile  string `yaml:"-`
+		URL    string `yaml:"url"`
+		Secret string `yaml:"secret"`
+	} `yaml:"callback"`
+	Status   string `yaml:"-"`
+	ExitCode int    `yaml:"-"`
+	LogFile  string `yaml:"-"`
 }
 
 func generateRandomID() string {
@@ -63,6 +65,43 @@ func LoadJobFile(path string) (*Job, error) {
 	return &job, nil
 }
 
+// Neue Funktion zum Laden mehrerer Jobs aus einer YAML-Datei
+func LoadJobsFile(path string) ([]*Job, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var jobs []*Job
+	if err := yaml.Unmarshal(data, &jobs); err != nil {
+		return nil, err
+	}
+	for _, job := range jobs {
+		job.JobID = generateRandomID()
+	}
+	return jobs, nil
+}
+
+func writeStatusFile(job *Job, jobDir string) {
+	statusFile := filepath.Join(jobDir, "status.yaml")
+	statusData := struct {
+		JobID     string `yaml:"job_id"`
+		Status    string `yaml:"status"`
+		ExitCode  int    `yaml:"exit_code"`
+		LogFile   string `yaml:"log_file"`
+		Timestamp string `yaml:"timestamp"`
+	}{
+		JobID:     job.JobID,
+		Status:    job.Status,
+		ExitCode:  job.ExitCode,
+		LogFile:   job.LogFile,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+	data, err := yaml.Marshal(&statusData)
+	if err == nil {
+		_ = os.WriteFile(statusFile, data, 0644)
+	}
+}
+
 func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string) {
 	job.Status = "pending"
 	job.ExitCode = -1
@@ -83,13 +122,17 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 	utils.InfoLogger.SetOutput(io.MultiWriter(os.Stdout, logFile))
 	utils.ErrorLogger.SetOutput(io.MultiWriter(os.Stderr, logFile))
 
+	// Status-Datei: pending
+	writeStatusFile(job, jobDir)
+
 	utils.InfoLogger.Println("Starting job:", job.JobID)
 	job.Status = "running"
+	writeStatusFile(job, jobDir)
 
 	var exitCode int
 	switch job.Executor {
 	case "docker":
-		exitCode = executors.RunDocker(job.JobID, job.Product, io.MultiWriter(os.Stderr, logFile))
+		exitCode = executors.RunDocker(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
 	default:
 		utils.ErrorLogger.Printf("Unknown executor %q. Aborted.", job.Executor)
 		exitCode = 1
@@ -103,34 +146,45 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 		job.Status = "failed"
 		utils.ErrorLogger.Println("Job failed:", job.JobID)
 	}
+	writeStatusFile(job, jobDir)
 
-	// Artifacts kopieren
-	for _, artifact := range job.Artifacts {
-		destPath := filepath.Join(jobDir, filepath.Base(artifact.Path))
-		err := copyFile(artifact.Path, destPath)
-		if err != nil {
-			utils.ErrorLogger.Printf("Error copying artifact %q: %v", artifact.Path, err)
-		} else {
-			utils.InfoLogger.Printf("Artifact copied: %s", destPath)
+	// Artifacts kopieren (nur wenn explizit definiert, unterstützt Wildcards)
+	jobWorkdir := filepath.Join(workDir, job.JobID)
+	if len(job.Artifacts) > 0 {
+		for _, artifact := range job.Artifacts {
+			artifactPath := artifact.Path
+			if !strings.HasPrefix(artifactPath, "mnt/") && !strings.HasPrefix(artifactPath, "mnt\\") {
+				artifactPath = filepath.Join("mnt", artifactPath)
+			}
+			pattern := filepath.Join(jobWorkdir, artifactPath)
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				utils.ErrorLogger.Printf("Glob-Fehler für %q: %v", artifact.Path, err)
+				continue
+			}
+			if len(matches) == 0 {
+				utils.ErrorLogger.Printf("Kein Artifact gefunden für Pattern: %s", artifact.Path)
+			}
+			for _, srcPath := range matches {
+				destPath := filepath.Join(jobDir, filepath.Base(srcPath))
+				err := copyFile(srcPath, destPath)
+				if err != nil {
+					utils.ErrorLogger.Printf("Error copying artifact %q: %v", srcPath, err)
+				} else {
+					utils.InfoLogger.Printf("Artifact copied: %s", destPath)
+				}
+			}
 		}
+	} else {
+		utils.InfoLogger.Println("Keine artifacts im Job definiert – es wird nichts kopiert.")
 	}
-
-	// Status in Datei schreiben
-	statusFile := filepath.Join(jobDir, "status.yaml")
-	statusData := struct {
-		JobID    string `yaml:"job_id`
-		Status   string `yaml:"status`
-		ExitCode int    `yaml:"exit_code`
-		LogFile  string `yaml:"log_file`
-	}{
-		JobID:    job.JobID,
-		Status:   job.Status,
-		ExitCode: job.ExitCode,
-		LogFile:  job.LogFile,
-	}
-	data, err := yaml.Marshal(&statusData)
-	if err == nil {
-		ioutil.WriteFile(statusFile, data, 0644)
+	// Arbeitsverzeichnis nach dem Kopieren/Job-Ende löschen (nur mnt-Unterordner)
+	mntDir := filepath.Join(workDir, job.JobID, "mnt")
+	err = os.RemoveAll(mntDir)
+	if err != nil {
+		utils.ErrorLogger.Printf("Fehler beim Entfernen des Arbeitsverzeichnisses %q: %v", mntDir, err)
+	} else {
+		utils.InfoLogger.Printf("Arbeitsverzeichnis %q entfernt.", mntDir)
 	}
 
 	// Callback-URL aus Job oder global
