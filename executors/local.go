@@ -4,10 +4,12 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+
+	"github.com/MASYONY/runner/utils"
 )
 
-// LocalExecutor führt die Befehle direkt auf dem Host aus
-func RunLocal(jobID string, product map[string]interface{}, variables map[string]string, logWriter io.Writer) int {
+// LocalExecutor mit Interpolation
+func RunLocal(jobID string, product map[string]interface{}, variables map[string]string, logWriter io.Writer, workDir string, jobResults map[string]map[string]interface{}, previousJobID string, jobIDMap map[string]string) int {
 	var cmdStr string
 	if commands, ok := product["commands"]; ok {
 		switch v := commands.(type) {
@@ -15,12 +17,12 @@ func RunLocal(jobID string, product map[string]interface{}, variables map[string
 			var lines []string
 			for _, s := range v {
 				if str, ok := s.(string); ok {
-					lines = append(lines, str)
+					lines = append(lines, utils.InterpolateVars(str, workDir, jobResults, previousJobID, jobIDMap, nil))
 				}
 			}
 			cmdStr = strings.Join(lines, "\n")
 		case string:
-			cmdStr = v
+			cmdStr = utils.InterpolateVars(v, workDir, jobResults, previousJobID, jobIDMap, nil)
 		}
 	}
 	if strings.TrimSpace(cmdStr) == "" {
@@ -30,6 +32,10 @@ func RunLocal(jobID string, product map[string]interface{}, variables map[string
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Stdout = logWriter
 	cmd.Stderr = logWriter
+	// Interpolation für alle Variablenwerte (rekursiv, falls Platzhalter enthalten)
+	for k, v := range variables {
+		variables[k] = utils.InterpolateVars(v, workDir, jobResults, previousJobID, jobIDMap, nil)
+	}
 	for k, v := range variables {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}

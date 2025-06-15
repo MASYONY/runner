@@ -1,7 +1,7 @@
 # sevDesk: Rechnung stornieren
 job_id: sevdesk-cancel-invoice
 executor: sevdesk
-type: cancel_invoice
 product:
+  type: cancel_invoice
   api_token: "<DEIN_API_TOKEN>"
   invoice_id: "56789"

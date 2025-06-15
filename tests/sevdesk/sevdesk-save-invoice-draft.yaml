@@ -1,0 +1,14 @@
+# sevDesk: Rechnung als Entwurf speichern
+job_id: sevdesk-save-invoice-draft
+executor: sevdesk
+product:
+  type: save_invoice_draft
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_data:
+    # ... vollständige Rechnungsdaten ...
+    date: "2025-06-14"
+    items:
+      - description: "Beratung"
+        quantity: 1
+        price: 100.0
+    total: 100.0

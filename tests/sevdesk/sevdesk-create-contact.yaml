@@ -1,0 +1,10 @@
+# sevDesk: Kontakt anlegen
+job_id: sevdesk-create-contact
+executor: sevdesk
+product:
+  type: create_contact
+  api_token: "<DEIN_API_TOKEN>"
+  contact_data:
+    # ... vollständige Kontaktdaten ...
+    name: "Max Mustermann"
+    category: "Kunde"

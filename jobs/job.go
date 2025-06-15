@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,6 +28,7 @@ type CallbackConfig struct {
 }
 
 type Job struct {
+	ID        string                 `yaml:"id"`
 	JobID     string                 `yaml:"job_id"`
 	Type      string                 `yaml:"type"`
 	Executor  string                 `yaml:"executor"`
@@ -71,14 +73,32 @@ func LoadJobsFile(path string) ([]*Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 1. Versuche Objekt mit 'jobs:'-Key
+	type jobsWrapper struct {
+		Jobs []*Job `yaml:"jobs"`
+	}
+	var wrapper jobsWrapper
+	if err := yaml.Unmarshal(data, &wrapper); err == nil && len(wrapper.Jobs) > 0 {
+		for _, job := range wrapper.Jobs {
+			job.JobID = generateRandomID()
+		}
+		return wrapper.Jobs, nil
+	}
+	// 2. Versuche reines Array
 	var jobs []*Job
-	if err := yaml.Unmarshal(data, &jobs); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(data, &jobs); err == nil && len(jobs) > 0 {
+		for _, job := range jobs {
+			job.JobID = generateRandomID()
+		}
+		return jobs, nil
 	}
-	for _, job := range jobs {
-		job.JobID = generateRandomID()
+	// 3. Versuche einzelnes Objekt (nur ein Job)
+	var singleJob Job
+	if err := yaml.Unmarshal(data, &singleJob); err == nil && singleJob.Executor != "" {
+		singleJob.JobID = generateRandomID()
+		return []*Job{&singleJob}, nil
 	}
-	return jobs, nil
+	return nil, fmt.Errorf("Konnte keine Jobs aus YAML laden: %s", path)
 }
 
 func writeStatusFile(job *Job, jobDir string) {
@@ -102,7 +122,7 @@ func writeStatusFile(job *Job, jobDir string) {
 	}
 }
 
-func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string, globalBeforeScript []string) {
+func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string, globalBeforeScript []string, jobResults map[string]map[string]interface{}, previousJobID string, jobIDMap map[string]string) {
 	// Vereinfachte Proxmox-Job-Syntax (Shortcuts für typische Aktionen)
 	if job.Executor == "proxmox" {
 		switch job.Type {
@@ -346,6 +366,26 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 		}
 	}
 
+	// Vereinfachte Lexware/SevDesk-Job-Syntax
+	if job.Executor == "lexware" {
+		switch job.Type {
+		case "create_invoice":
+			// Hier könnten weitere Felder vorbereitet werden
+		case "cancel_invoice":
+			// Hier könnten weitere Felder vorbereitet werden
+		}
+	}
+	if job.Executor == "sevdesk" {
+		switch job.Type {
+		case "create_invoice":
+			// Hier könnten weitere Felder vorbereitet werden
+		case "cancel_invoice":
+			// Hier könnten weitere Felder vorbereitet werden
+		case "list_invoices":
+			// Keine weiteren Felder nötig
+		}
+	}
+
 	job.Status = "pending"
 	job.ExitCode = -1
 	jobDir := filepath.Join(workDir, job.JobID)
@@ -466,15 +506,19 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 			Commands:     commands,
 			Namespace:    namespace,
 		}
-		exitCode = executors.RunDocker(job.JobID, product, job.Variables, io.MultiWriter(os.Stderr, logFile), useTTY)
+		exitCode = executors.RunDocker(job.JobID, product, job.Variables, io.MultiWriter(os.Stderr, logFile), useTTY, workDir, jobResults, previousJobID, jobIDMap)
 	case "custom":
-		exitCode = executors.RunCustom(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+		exitCode = executors.RunCustom(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
 	case "local":
-		exitCode = executors.RunLocal(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+		exitCode = executors.RunLocal(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
 	case "ssh":
-		exitCode = executors.RunSSH(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+		exitCode = executors.RunSSH(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
 	case "proxmox":
-		exitCode = executors.RunProxmox(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile))
+		exitCode = executors.RunProxmox(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
+	case "lexware":
+		exitCode = executors.RunLexware(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
+	case "sevdesk":
+		exitCode = executors.RunSevDesk(job.JobID, job.Product, job.Variables, io.MultiWriter(os.Stderr, logFile), workDir, jobResults, previousJobID, jobIDMap)
 	default:
 		utils.ErrorLogger.Printf("Unknown executor %q. Aborted.", job.Executor)
 		exitCode = 1
@@ -489,6 +533,20 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 		utils.ErrorLogger.Println("Job failed:", job.JobID)
 	}
 	writeStatusFile(job, jobDir)
+
+	// result.json als Pflicht-Artefakt eintragen, falls nicht vorhanden
+	jobDir = filepath.Join(workDir, job.JobID)
+	resultArtifact := Artifact{Path: "result.json", Type: "file"}
+	found := false
+	for _, a := range job.Artifacts {
+		if a.Path == resultArtifact.Path {
+			found = true
+			break
+		}
+	}
+	if !found {
+		job.Artifacts = append(job.Artifacts, resultArtifact)
+	}
 
 	// Artifacts kopieren (nur wenn explizit definiert, unterstützt Wildcards)
 	jobWorkdir := filepath.Join(workDir, job.JobID)
@@ -538,6 +596,50 @@ func RunJob(job *Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret
 	}
 	if callbackURL != "" {
 		sendCallback(callbackURL, callbackSecret, job)
+	}
+}
+
+func RunJobs(jobs []*Job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret string, globalBeforeScript []string) {
+	jobResults := make(map[string]map[string]interface{})
+	jobIDMap := make(map[string]string) // YAML-JobID -> Laufzeit-JobID
+	var previousJobID string
+	for idx, job := range jobs {
+		if job.ID != "" {
+			jobIDMap[job.ID] = job.JobID
+		}
+		// previousJobID vor dem Joblauf setzen (ab dem zweiten Job)
+		if idx > 0 {
+			if jobs[idx-1].ID != "" {
+				previousJobID = jobs[idx-1].ID
+			} else {
+				previousJobID = jobs[idx-1].JobID
+			}
+		} else {
+			previousJobID = ""
+		}
+		// Interpolation für Produkt und Variablen
+		for k, v := range job.Product {
+			if s, ok := v.(string); ok {
+				job.Product[k] = utils.InterpolateVars(s, workDir, jobResults, previousJobID, jobIDMap, nil)
+			}
+		}
+		for k, v := range job.Variables {
+			job.Variables[k] = utils.InterpolateVars(v, workDir, jobResults, previousJobID, jobIDMap, nil)
+		}
+		fmt.Printf("[RunJobs-DEBUG] Starte Job: %s | previousJobID: %q\n", job.JobID, previousJobID)
+		RunJob(job, logDir, workDir, defaultCallbackURL, defaultCallbackSecret, globalBeforeScript, jobResults, previousJobID, jobIDMap)
+		// result.json einlesen und merken
+		resultPath := filepath.Join(workDir, job.JobID, "result.json")
+		if b, err := os.ReadFile(resultPath); err == nil {
+			var res map[string]interface{}
+			_ = json.Unmarshal(b, &res)
+			// Ergebnis unter YAML-ID speichern, damit Interpolation funktioniert
+			if job.ID != "" {
+				jobResults[job.ID] = res
+			} else {
+				jobResults[job.JobID] = res
+			}
+		}
 	}
 }
 

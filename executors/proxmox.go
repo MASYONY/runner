@@ -7,18 +7,45 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/MASYONY/runner/utils"
 )
 
-// RunProxmox führt einen API-Call gegen einen Proxmox-Server aus
-func RunProxmox(jobID string, product map[string]interface{}, variables map[string]string, logWriter io.Writer) int {
-	host, _ := product["host"].(string)        // z.B. https://proxmox.example.com:8006
-	node, _ := product["node"].(string)        // z.B. pve
-	typeStr, _ := product["type"].(string)     // "qemu" oder "lxc"
-	vmid, _ := product["vmid"].(string)        // z.B. 101 (optional für create)
-	tokenID, _ := product["token_id"].(string) // z.B. root@pam!apitoken
+// RunProxmox mit Interpolation
+func RunProxmox(jobID string, product map[string]interface{}, variables map[string]string, logWriter io.Writer, workDir string, jobResults map[string]map[string]interface{}, previousJobID string, jobIDMap map[string]string) int {
+	workDir = utils.InterpolateVars(workDir, workDir, jobResults, previousJobID, jobIDMap, nil)
+	if wd, ok := variables["WORKDIR"]; ok && wd != "" {
+		workDir = utils.InterpolateVars(wd, workDir, jobResults, previousJobID, jobIDMap, nil)
+	}
+
+	host, _ := product["host"].(string)
+	host = utils.InterpolateVars(host, workDir, jobResults, previousJobID, jobIDMap, nil)
+	node, _ := product["node"].(string)
+	node = utils.InterpolateVars(node, workDir, jobResults, previousJobID, jobIDMap, nil)
+	typeStr, _ := product["type"].(string)
+	typeStr = utils.InterpolateVars(typeStr, workDir, jobResults, previousJobID, jobIDMap, nil)
+	vmid, _ := product["vmid"].(string)
+	vmid = utils.InterpolateVars(vmid, workDir, jobResults, previousJobID, jobIDMap, nil)
+	tokenID, _ := product["token_id"].(string)
+	tokenID = utils.InterpolateVars(tokenID, workDir, jobResults, previousJobID, jobIDMap, nil)
 	tokenSecret, _ := product["token_secret"].(string)
-	apiCommand, _ := product["api_command"].(string) // z.B. "status/start", "create", "config", "agent/exec"
+	tokenSecret = utils.InterpolateVars(tokenSecret, workDir, jobResults, previousJobID, jobIDMap, nil)
+	apiCommand, _ := product["api_command"].(string)
+	apiCommand = utils.InterpolateVars(apiCommand, workDir, jobResults, previousJobID, jobIDMap, nil)
 	apiParams, _ := product["api_params"].(map[string]interface{})
+	// Optional: Rekursive Interpolation für alle Strings in apiParams
+	if apiParams != nil {
+		for k, v := range apiParams {
+			if str, ok := v.(string); ok {
+				apiParams[k] = utils.InterpolateVars(str, workDir, jobResults, previousJobID, jobIDMap, nil)
+			}
+		}
+	}
+
+	// Interpolation für alle Variablenwerte (rekursiv, falls Platzhalter enthalten)
+	for k, v := range variables {
+		variables[k] = utils.InterpolateVars(v, workDir, jobResults, previousJobID, jobIDMap, nil)
+	}
 
 	if host == "" || node == "" || typeStr == "" || tokenID == "" || tokenSecret == "" || apiCommand == "" {
 		io.WriteString(logWriter, "ERROR: Fehlende Proxmox-Parameter im Job\n")
@@ -63,6 +90,15 @@ func RunProxmox(jobID string, product map[string]interface{}, variables map[stri
 	body, _ := ioutil.ReadAll(resp.Body)
 	io.WriteString(logWriter, fmt.Sprintf("Proxmox-API-Status: %s\n", resp.Status))
 	io.WriteString(logWriter, string(body)+"\n")
+	result := map[string]interface{}{
+		"success": resp.StatusCode >= 200 && resp.StatusCode < 300,
+		"data":    string(body),
+		"error":   "",
+	}
+	if !result["success"].(bool) {
+		result["error"] = fmt.Sprintf("Proxmox-API-Status: %s", resp.Status)
+	}
+	_ = utils.WriteJobResult(jobID, workDir, result)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return 0
 	}

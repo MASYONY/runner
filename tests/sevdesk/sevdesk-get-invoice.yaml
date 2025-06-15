@@ -1,0 +1,7 @@
+# sevDesk: Einzelne Rechnung abrufen
+job_id: sevdesk-get-invoice
+executor: sevdesk
+product:
+  type: get_invoice
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_id: "123456"

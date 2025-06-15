@@ -1,0 +1,17 @@
+# sevDesk: Rechnung erstellen und löschen mit Interpolation
+jobs:
+  - id: create_invoice
+    executor: sevdesk
+    product:
+      type: create_invoice
+      api_token: "<DEIN_API_TOKEN>"
+      contact_id: "54321"
+      amount: 100.00
+      description: "Testrechnung für Interpolation"
+
+  - id: delete_invoice
+    executor: sevdesk
+    product:
+      type: delete_invoice
+      api_token: "<DEIN_API_TOKEN>"
+      invoice_id: "${create_invoice.result.data.id}"

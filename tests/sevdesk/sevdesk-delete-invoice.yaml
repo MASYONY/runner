@@ -1,0 +1,7 @@
+# sevDesk: Rechnung löschen
+job_id: sevdesk-delete-invoice
+executor: sevdesk
+product:
+  type: delete_invoice
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_id: "123456"

@@ -1,0 +1,8 @@
+# sevDesk: Rechnung als PDF abrufen
+job_id: sevdesk-get-invoice-pdf
+executor: sevdesk
+product:
+  type: get_invoice_pdf
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_id: "123456"
+  pdf_output: "./invoice-123456.pdf"

@@ -38,7 +38,7 @@ var rootCmd = &cobra.Command{
 
 var runCmd = &cobra.Command{
 	Use:   "run <job.yaml>",
-	Short: "Führe einen Job aus",
+	Short: "Führe einen Job oder Workflow aus (Single- oder Multi-Job-YAML)",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		file = args[0]
@@ -61,14 +61,20 @@ var runCmd = &cobra.Command{
 			}
 		}
 
+		// Versuche Multi-Job-Workflow zu laden
+		jobsList, err := jobs.LoadJobsFile(file)
+		if err == nil && len(jobsList) > 0 {
+			jobs.RunJobs(jobsList, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript)
+			return
+		}
+		// Fallback: Einzeljob
 		jobDef, err := jobs.LoadJobFile(file)
 		if err != nil {
 			fmt.Println("Failed to load job:", err)
 			os.Exit(1)
 		}
-
-		// Job ausführen mit erweiterten Optionen
-		jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript)
+		// Dummy-Maps für Einzeljob
+		jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript, map[string]map[string]interface{}{}, "", map[string]string{})
 	},
 }
 
@@ -105,7 +111,8 @@ var runMultiCmd = &cobra.Command{
 
 		for i, jobDef := range jobsList {
 			fmt.Printf("\n--- Starte Job %d: %s ---\n", i+1, jobDef.Type)
-			jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript)
+			// Dummy-Maps für Einzeljob-Aufruf
+			jobs.RunJob(jobDef, logDir, workDir, runnerConfig.Callback.URL, runnerConfig.Callback.Secret, runnerConfig.GlobalBeforeScript, map[string]map[string]interface{}{}, "", map[string]string{})
 		}
 	},
 }

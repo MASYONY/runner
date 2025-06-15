@@ -1,0 +1,6 @@
+# sevDesk: Alle Rechnungen abrufen
+job_id: sevdesk-list-invoices
+executor: sevdesk
+product:
+  type: list_invoices
+  api_token: "<DEIN_API_TOKEN>"

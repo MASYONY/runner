@@ -1,0 +1,10 @@
+# sevDesk: Rechnungen mit Filter abrufen (z.B. Zeitraum, Status)
+job_id: sevdesk-list-invoices-filtered
+executor: sevdesk
+product:
+  type: list_invoices
+  api_token: "<DEIN_API_TOKEN>"
+  filter:
+    status: 100
+    date_from: "2025-01-01"
+    date_to: "2025-06-14"

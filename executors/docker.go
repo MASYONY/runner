@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/MASYONY/runner/utils"
 )
 
 // Standardisierte Umgebungsvariablen, die jeder Job mitbekommt
@@ -28,13 +30,14 @@ type DockerProduct struct {
 	Namespace    string
 }
 
-func RunDocker(jobID string, product DockerProduct, variables map[string]string, logWriter io.Writer, useTTY bool) int {
+// Erweiterte Signatur: Interpolation für alle Felder
+func RunDocker(jobID string, product DockerProduct, variables map[string]string, logWriter io.Writer, useTTY bool, workDir string, jobResults map[string]map[string]interface{}, previousJobID string, jobIDMap map[string]string) int {
 	DefaultInfoLogger := log.New(logWriter, "INFO: ", log.LstdFlags)
 	DefaultErrorLogger := log.New(logWriter, "ERROR: ", log.LstdFlags)
 
 	DefaultInfoLogger.Printf("[Docker Executor] Starte Job %s", jobID)
 
-	image := strings.TrimSpace(product.Image)
+	image := utils.InterpolateVars(strings.TrimSpace(product.Image), workDir, jobResults, previousJobID, jobIDMap, nil)
 	if image == "" {
 		DefaultErrorLogger.Printf("Docker Executor: Error: No image defined")
 		return 1
@@ -42,20 +45,20 @@ func RunDocker(jobID string, product DockerProduct, variables map[string]string,
 
 	// Sammle alle Befehle: before_script, commands, script
 	var commands []string
-	if len(product.BeforeScript) > 0 {
-		commands = append(commands, product.BeforeScript...)
+	for _, s := range product.BeforeScript {
+		commands = append(commands, utils.InterpolateVars(s, workDir, jobResults, previousJobID, jobIDMap, nil))
 	}
-	commandsRaw := strings.TrimSpace(product.Commands)
+	commandsRaw := utils.InterpolateVars(strings.TrimSpace(product.Commands), workDir, jobResults, previousJobID, jobIDMap, nil)
 	if commandsRaw != "" {
 		for _, line := range strings.Split(commandsRaw, "\n") {
 			line = strings.TrimSpace(line)
 			if line != "" {
-				commands = append(commands, line)
+				commands = append(commands, utils.InterpolateVars(line, workDir, jobResults, previousJobID, jobIDMap, nil))
 			}
 		}
 	}
-	if len(product.Script) > 0 {
-		commands = append(commands, product.Script...)
+	for _, s := range product.Script {
+		commands = append(commands, utils.InterpolateVars(s, workDir, jobResults, previousJobID, jobIDMap, nil))
 	}
 	if len(commands) == 0 {
 		DefaultErrorLogger.Printf("Docker Executor: Error: No commands to execute")
@@ -65,9 +68,9 @@ func RunDocker(jobID string, product DockerProduct, variables map[string]string,
 	// Namespace aus product oder variables lesen (optional)
 	namespace := "runner"
 	if product.Namespace != "" {
-		namespace = product.Namespace
+		namespace = utils.InterpolateVars(product.Namespace, workDir, jobResults, previousJobID, jobIDMap, nil)
 	} else if ns, ok := variables["NAMESPACE"]; ok && ns != "" {
-		namespace = ns
+		namespace = utils.InterpolateVars(ns, workDir, jobResults, previousJobID, jobIDMap, nil)
 	}
 
 	containerName := "runner_" + jobID
@@ -92,10 +95,14 @@ func RunDocker(jobID string, product DockerProduct, variables map[string]string,
 		if key == "JOB_ID" {
 			val = jobID
 		}
-		env = append(env, fmt.Sprintf("%s=%s", key, val))
+		env = append(env, fmt.Sprintf("%s=%s", key, utils.InterpolateVars(val, workDir, jobResults, previousJobID, jobIDMap, nil)))
+	}
+	// Interpolation für alle Variablenwerte (rekursiv, falls Platzhalter enthalten)
+	for k, v := range variables {
+		variables[k] = utils.InterpolateVars(v, workDir, jobResults, previousJobID, jobIDMap, nil)
 	}
 	for key, val := range variables {
-		env = append(env, fmt.Sprintf("%s=%s", key, val))
+		env = append(env, fmt.Sprintf("%s=%s", key, utils.InterpolateVars(val, workDir, jobResults, previousJobID, jobIDMap, nil)))
 	}
 	env = append(env, fmt.Sprintf("JOB_WORKDIR=%s", containerWorkdir))
 

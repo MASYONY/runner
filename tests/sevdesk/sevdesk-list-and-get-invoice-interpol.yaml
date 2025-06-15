@@ -1,0 +1,16 @@
+# sevDesk: Alle Rechnungen auflisten und eine gezielt abrufen (Interpolation)
+jobs:
+  - id: list_invoices
+    executor: sevdesk
+    product:
+      type: list_invoices
+      api_token: "<DEIN_API_TOKEN>"
+      # Optional: Filter, z.B. status: "DRAFT"
+
+  - id: get_invoice
+    executor: sevdesk
+    product:
+      type: get_invoice
+      api_token: "<DEIN_API_TOKEN>"
+      invoice_id: "${list_invoices.result.data[0].id}"
+      # Ruft die erste gefundene Rechnung ab

@@ -1,8 +1,8 @@
 # sevDesk: Rechnung erstellen
 job_id: sevdesk-create-invoice
 executor: sevdesk
-type: create_invoice
 product:
+  type: create_invoice
   api_token: "<DEIN_API_TOKEN>"
   contact_id: "54321"
   invoice_data:

@@ -1,0 +1,7 @@
+# sevDesk: Rechnungsstatus abfragen
+job_id: sevdesk-get-invoice-status
+executor: sevdesk
+product:
+  type: get_invoice_status
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_id: "123456"

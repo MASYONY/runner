@@ -1,0 +1,7 @@
+# sevDesk: Rechnung per E-Mail versenden
+job_id: sevdesk-send-invoice
+executor: sevdesk
+product:
+  type: send_invoice
+  api_token: "<DEIN_API_TOKEN>"
+  invoice_id: "123456"
